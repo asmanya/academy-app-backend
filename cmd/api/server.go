@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+	"time"
 
 	mw "academy-app-system/internal/api/middlewares"
 )
@@ -18,36 +18,15 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// fmt.Println(r.URL.Path)
-		path := strings.TrimPrefix(r.URL.Path, "/teachers/")
-		userID := strings.TrimSuffix(path, "/")
-
-		// fmt.Println("id is:", userID)
-
-		// fmt.Println("Query params:", r.URL.Query())
-		queryParams := r.URL.Query()
-		sortby := queryParams.Get("sortby")
-		key := queryParams.Get("key")
-		sortorder := queryParams.Get("sortorder")
-
-		if sortorder == "" {
-			sortorder = "DESC"
-		}
-
-		fmt.Printf("Sortby: %v, Key: %v, Sortorder:%v\n", sortby, key, sortorder)
-		w.Write([]byte(fmt.Sprintf("Hello GET Method on Teachers Route, the userID is %s", userID)))
+		w.Write([]byte("Hello GET Method on Teachers Route"))
 	case http.MethodPost:
 		w.Write([]byte("Hello POST Method on Teachers Route"))
-		fmt.Println("Hello POST Method on Teachers Route")
 	case http.MethodPut:
 		w.Write([]byte("Hello PUT Method on Teachers Route"))
-		fmt.Println("Hello PUT Method on Teachers Route")
 	case http.MethodPatch:
 		w.Write([]byte("Hello PATCH Method on Teachers Route"))
-		fmt.Println("Hello PATCH Method on Teachers Route")
 	case http.MethodDelete:
 		w.Write([]byte("Hello DELETE Method on Teachers Route"))
-		fmt.Println("Hello DELETE Method on Teachers Route")
 	}
 }
 
@@ -55,19 +34,14 @@ func studentsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		w.Write([]byte("Hello GET Method Students Route"))
-		fmt.Println("Hello GET Method Students Route")
 	case http.MethodPost:
 		w.Write([]byte("Hello POST Method Students Route"))
-		fmt.Println("Hello POST Method Students Route")
 	case http.MethodPut:
 		w.Write([]byte("Hello PUT Method Students Route"))
-		fmt.Println("Hello PUT Method Students Route")
 	case http.MethodPatch:
 		w.Write([]byte("Hello PATCH Method Students Route"))
-		fmt.Println("Hello PATCH Method Students Route")
 	case http.MethodDelete:
 		w.Write([]byte("Hello DELETE Method Students Route"))
-		fmt.Println("Hello DELETE Method Students Route")
 	}
 }
 
@@ -75,19 +49,25 @@ func execsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		w.Write([]byte("Hello GET Method execs Route"))
-		fmt.Println("Hello GET Method execs Route")
 	case http.MethodPost:
+		fmt.Println("Query:", r.URL.Query())
+		fmt.Println("name:", r.URL.Query().Get("name"))
+
+		// Parse form data (necessary for x-www-form-urlencoded)
+		err := r.ParseForm()
+		if err != nil {
+			return
+		}
+
+		fmt.Println("Form from POST methods:", r.Form)
+
 		w.Write([]byte("Hello POST Method execs Route"))
-		fmt.Println("Hello POST Method execs Route")
 	case http.MethodPut:
 		w.Write([]byte("Hello PUT Method execs Route"))
-		fmt.Println("Hello PUT Method execs Route")
 	case http.MethodPatch:
 		w.Write([]byte("Hello PATCH Method execs Route"))
-		fmt.Println("Hello PATCH Method execs Route")
 	case http.MethodDelete:
 		w.Write([]byte("Hello DELETE Method execs Route"))
-		fmt.Println("Hello DELETE Method execs Route")
 	}
 }
 
@@ -109,12 +89,22 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	rl := mw.NewRateLimiter(5, time.Minute)
+	hpp := mw.HPPOptions{
+		CheckQuery: true,
+		CheckBody: true,
+		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
+		WhiteList: []string{"sortBy", "sortOrder", "name", "age", "class", "country"},
+	}
+
+	secureMux := mw.Hpp(hpp)(rl.RLMiddleware(mw.Compression(mw.ResponseTimeMiddleware(mw.SecurityHeader(mw.Cors(mux))))))
+
 	// create custom server
 	server := &http.Server{
 		Addr: port,
 		// Handler:   mux,
 		// Handler:   mw.Cors(mux),
-		Handler:   mw.SecurityHeader(mw.Cors(mux)),
+		Handler:   secureMux,
 		TLSConfig: tlsConfig,
 	}
 
