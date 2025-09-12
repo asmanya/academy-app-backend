@@ -1,11 +1,14 @@
 package middlewares
 
-import "net/http"
+import (
+	// "fmt"
+	"net/http"
+)
 
 func SecurityHeader(next http.Handler) http.Handler {
-
+	// fmt.Println("Security Handler middleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
+		// fmt.Println("Security Handler middleware being returned =========XXXXXXXXXX==========")
 		w.Header().Set("X-DNS-Prefetch-Control", "off")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -23,6 +26,7 @@ func SecurityHeader(next http.Handler) http.Handler {
 		w.Header().Set("Permissions-Policy", "geolocation=(self), microphone=()")
 
 		next.ServeHTTP(w, r)
+		// fmt.Println("Sent response from securityHeader middleware")
 	})
 
 }

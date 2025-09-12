@@ -14,8 +14,10 @@ type HPPOptions struct {
 }
 
 func Hpp(options HPPOptions) func(http.Handler) http.Handler {
+	// fmt.Println("Hpp Middleware")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// fmt.Println("HPP middleware being returned =========XXXXXXXXXX==========")
 			if options.CheckBody && r.Method == http.MethodPost && isCorrectContentType(r, options.CheckBodyOnlyForContentType){
 				// filter the body params
 				filterBodyParams(r, options.WhiteList)
@@ -27,6 +29,7 @@ func Hpp(options HPPOptions) func(http.Handler) http.Handler {
 			}
 
 			next.ServeHTTP(w, r)
+			// fmt.Println("Sent response from HPP middleware")
 		})
 	}
 }

@@ -7,8 +7,9 @@ import (
 )
 
 func ResponseTimeMiddleware(next http.Handler) http.Handler {
+	// fmt.Println("ResponseTime middleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Recieved request in responseTime middlware")
+		// fmt.Println("responseTime middlware being returned =========XXXXXXXXXX==========")
 		start := time.Now()
 
 		// create a custom response writer to capture the code
@@ -17,7 +18,7 @@ func ResponseTimeMiddleware(next http.Handler) http.Handler {
 		duration := time.Since(start)
 		wrappedWriter.Header().Set("X-Response-Time", duration.String())
 		next.ServeHTTP(wrappedWriter, r)
-		
+
 		// calculate the duration
 		duration = time.Since(start)
 

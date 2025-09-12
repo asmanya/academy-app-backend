@@ -17,7 +17,9 @@ var allowedOrigins = []string{
 }
 
 func Cors(next http.Handler) http.Handler {
+	// fmt.Println("Cors middleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Println("Cors middleware being returned =========XXXXXXXXXX==========")
 		origin := r.Header.Get("Origin")
 		fmt.Println(origin)
 
@@ -39,6 +41,7 @@ func Cors(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+		// fmt.Println("Sent response from Cors middleware")
 	})
 }
 

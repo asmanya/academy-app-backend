@@ -2,13 +2,16 @@ package middlewares
 
 import (
 	"compress/gzip"
+	// "fmt"
 	"net/http"
 	"strings"
 )
 
 func Compression(next http.Handler) http.Handler {
+	// fmt.Println("Compression Middleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// check if the client acceptss gzip encoding
+		// fmt.Println("Compression middleware being returned =========XXXXXXXXXX==========")
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return
