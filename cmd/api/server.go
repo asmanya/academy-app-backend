@@ -5,14 +5,29 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	mw "academy-app-system/internal/api/middlewares"
 	"academy-app-system/internal/api/router"
+	"academy-app-system/internal/repository/sqlconnect"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 
-	port := ":3000"
+	err := godotenv.Load()
+	if err != nil {
+		return
+	}
+
+	_, err = sqlconnect.ConnectDb()
+	if err != nil {
+		fmt.Println("Couldn't connect to MariaDB", err)
+		return
+	}
+
+	port := os.Getenv("API_PORT")
 
 	cert := "cert.pem"
 	key := "key.pem"
@@ -47,7 +62,7 @@ func main() {
 	}
 
 	fmt.Println("Server is listening on port", port)
-	err := server.ListenAndServeTLS(cert, key)
+	err = server.ListenAndServeTLS(cert, key)
 	if err != nil {
 		log.Fatal("Error starting the server:", err)
 	}
