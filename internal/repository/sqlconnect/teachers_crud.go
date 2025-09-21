@@ -9,65 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"strings"
 )
-
-func isValidSortOrder(order string) bool {
-	return order == "asc" || order == "desc"
-}
-
-func isValidSortField(field string) bool {
-	validFields := map[string]bool{
-		"first_name": true,
-		"last_name":  true,
-		"email":      true,
-		"class":      true,
-		"subject":    true,
-	}
-
-	return validFields[field]
-}
-
-func addSorting(r *http.Request, query string) string {
-	sortParams := r.URL.Query()["sortby"]
-	if len(sortParams) > 0 {
-		query += " ORDER BY"
-		for i, param := range sortParams {
-			parts := strings.Split(param, ":")
-			if len(parts) != 2 {
-				continue
-			}
-			field, order := parts[0], parts[1]
-			if !isValidSortField(field) || !isValidSortOrder(order) {
-				continue
-			}
-			if i > 0 {
-				query += ","
-			}
-			query += " " + field + " " + order
-		}
-	}
-	return query
-}
-
-func addFilters(r *http.Request, query string, args []interface{}) (string, []interface{}) {
-	params := map[string]string{
-		"first_name": "first_name",
-		"last_name":  "last_name",
-		"email":      "email",
-		"class":      "class",
-		"subject":    "subject",
-	}
-
-	for param, dbField := range params {
-		value := r.URL.Query().Get(param)
-		if value != "" {
-			query += " AND " + dbField + " = ?"
-			args = append(args, value)
-		}
-	}
-	return query, args
-}
 
 func GetTeachersDBHandler(teachers []models.Teacher, r *http.Request) ([]models.Teacher, error) {
 	db, err := ConnectDb()
@@ -79,9 +21,9 @@ func GetTeachersDBHandler(teachers []models.Teacher, r *http.Request) ([]models.
 	query := "SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE 1=1"
 	var args []interface{}
 
-	query, args = addFilters(r, query, args)
+	query, args = utils.AddFilters(r, query, args)
 
-	query = addSorting(r, query)
+	query = utils.AddSorting(r, query)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -119,6 +61,53 @@ func GetTeacherByID(id int) (models.Teacher, error) {
 	return teacher, nil
 }
 
+func GetStudentsByTeacherIdFromDb(teacherID string, students []models.Student) ([]models.Student, error) {
+	db, err := ConnectDb()
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	defer db.Close()
+
+	query := `SELECT id, first_name, last_name, email, class FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)`
+	rows, err := db.Query(query, teacherID)
+	if err != nil {
+		return nil, utils.ErrorHandler(err, "error retrieving data")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var student models.Student
+		err := rows.Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email, &student.Class)
+		if err != nil {
+			return nil, utils.ErrorHandler(err, "error retrieving data")
+		}
+		students = append(students, student)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, utils.ErrorHandler(err, "error retrieving data")
+	}
+	return students, nil
+}
+
+func GetStudentCountByTeacherIdFromDb(teacherID string) (int, error) {
+	db, err := ConnectDb()
+	if err != nil {
+		return 0, utils.ErrorHandler(err, "err retrieving data")
+	}
+	defer db.Close()
+
+	query := `SELECT COUNT(*) FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)`
+
+	var studentCount int
+	err = db.QueryRow(query, teacherID).Scan(&studentCount)
+	if err != nil {
+		return 0, utils.ErrorHandler(err, "err retrieving data")
+	}
+	return studentCount, nil
+}
+
 func AddTeachersDBHandler(newTeachers []models.Teacher) ([]models.Teacher, error) {
 	db, err := ConnectDb()
 	if err != nil {
@@ -126,7 +115,8 @@ func AddTeachersDBHandler(newTeachers []models.Teacher) ([]models.Teacher, error
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare(`INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)`)
+	// stmt, err := db.Prepare(`INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)`)
+	stmt, err := db.Prepare(utils.GenerateInsertQuery("teachers", models.Teacher{}))
 	if err != nil {
 		return nil, utils.ErrorHandler(err, "error adding data")
 	}
@@ -134,7 +124,9 @@ func AddTeachersDBHandler(newTeachers []models.Teacher) ([]models.Teacher, error
 
 	addedTeachers := make([]models.Teacher, len(newTeachers))
 	for i, newTeacher := range newTeachers {
-		res, err := stmt.Exec(newTeacher.FirstName, newTeacher.LastName, newTeacher.Email, newTeacher.Class, newTeacher.Subject)
+		// res, err := stmt.Exec(newTeacher.FirstName, newTeacher.LastName, newTeacher.Email, newTeacher.Class, newTeacher.Subject)
+		values := utils.GetStructValues(newTeacher)
+		res, err := stmt.Exec(values...)
 		if err != nil {
 			return nil, utils.ErrorHandler(err, "error adding data")
 		}

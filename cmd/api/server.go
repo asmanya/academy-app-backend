@@ -36,7 +36,7 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	router := router.Router()
+	router := router.MainRouter()
 
 	// rl := mw.NewRateLimiter(5, time.Minute)
 	// HPPOptions := mw.HPPOptions{
