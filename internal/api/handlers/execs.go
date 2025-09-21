@@ -3,12 +3,14 @@ package handlers
 import (
 	"academy-app-system/internal/models"
 	"academy-app-system/internal/repository/sqlconnect"
+	"academy-app-system/pkg/utils"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // GET /execs/
@@ -115,8 +117,8 @@ func AddExecsHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	response := struct {
-		Status string           `json:"status"`
-		Count  int              `json:"count"`
+		Status string        `json:"status"`
+		Count  int           `json:"count"`
 		Data   []models.Exec `json:"data"`
 	}{
 		Status: "success",
@@ -199,6 +201,79 @@ func DeleteOneExecHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		Status: "Exec successfully deleted",
 		ID:     id,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// POST /execs/login
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.Exec
+
+	// 1. Data validation
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "username & password are required", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Search for user if user actually exists
+	user, err := sqlconnect.GetUserByUsername(req.Username)
+	if err != nil {
+		http.Error(w, "Invalid username or password", http.StatusBadRequest)
+		return
+	}
+
+	// 3. is user active
+	if user.InactiveStatus {
+		http.Error(w, "Account is inactive", http.StatusForbidden)
+		return
+	}
+
+	// 4. verify password
+	err = utils.VerifyPassword(req.Password, user.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 5. Generate token
+	tokenString, err := utils.SignToken(user.ID, req.Username, user.Role)
+	if err != nil {
+		http.Error(w, "Could not create login token", http.StatusInternalServerError)
+		return
+	}
+
+	// Send token as a response or as a cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Bearer",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "test",
+		Value:    "testing",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	response := struct {
+		Token string `json:"token"`
+	}{
+		Token: tokenString,
 	}
 
 	json.NewEncoder(w).Encode(response)

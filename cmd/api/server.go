@@ -10,6 +10,7 @@ import (
 	mw "academy-app-system/internal/api/middlewares"
 	"academy-app-system/internal/api/router"
 	"academy-app-system/internal/repository/sqlconnect"
+	"academy-app-system/pkg/utils"
 
 	"github.com/joho/godotenv"
 )
@@ -23,7 +24,7 @@ func main() {
 
 	_, err = sqlconnect.ConnectDb()
 	if err != nil {
-		fmt.Println("Couldn't connect to MariaDB", err)
+		utils.ErrorHandler(err, "")
 		return
 	}
 
