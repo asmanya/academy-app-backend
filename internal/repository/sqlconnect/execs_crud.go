@@ -4,16 +4,18 @@ import (
 	"academy-app-system/internal/models"
 	"academy-app-system/pkg/utils"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
+	"time"
 
-	"golang.org/x/crypto/argon2"
+	"github.com/go-mail/mail/v2"
 )
 
 func GetExecsDBHandler(execs []models.Exec, r *http.Request) ([]models.Exec, error) {
@@ -81,22 +83,10 @@ func AddExecsDBHandler(newExecs []models.Exec) ([]models.Exec, error) {
 
 	addedExecs := make([]models.Exec, len(newExecs))
 	for i, newExec := range newExecs {
-		if newExec.Password == "" {
-			return nil, utils.ErrorHandler(errors.New("password is blank"), "please enter password")
-		}
-
-		salt := make([]byte, 16)
-		_, err := rand.Read(salt)
+		newExec.Password, err = utils.HashPassword(newExec.Password)
 		if err != nil {
-			return nil, utils.ErrorHandler(errors.New("failed to generate salt"), "error adding data")
+			return nil, utils.ErrorHandler(err, "error adding exec into database")
 		}
-
-		hash := argon2.IDKey([]byte(newExec.Password), salt, 1, 64*1024, 4, 32)
-		saltBase64 := base64.StdEncoding.EncodeToString(salt)
-		hashBase64 := base64.StdEncoding.EncodeToString(hash)
-
-		encodedHash := fmt.Sprintf("%s.%s", saltBase64, hashBase64)
-		newExec.Password = encodedHash
 
 		values := utils.GetStructValues(newExec)
 		res, err := stmt.Exec(values...)
@@ -270,4 +260,104 @@ func GetUserByUsername(username string) (*models.Exec, error) {
 		return nil, utils.ErrorHandler(err, "database error")
 	}
 	return user, nil
+}
+
+func UpdatePasswordInDb(userId int, currentPassword, newPassword string) (string, error) {
+	db, err := ConnectDb()
+	if err != nil {
+		return "", utils.ErrorHandler(err, "database connection error")
+	}
+	defer db.Close()
+
+	var username string
+	var userPassword string
+	var userRole string
+
+	err = db.QueryRow(`SELECT username, password, role FROM execs WHERE id = ?`, userId).Scan(&username, &userPassword, &userRole)
+	if err != nil {
+		return "", utils.ErrorHandler(err, "user not found")
+
+	}
+
+	err = utils.VerifyPassword(currentPassword, userPassword)
+	if err != nil {
+		return "", utils.ErrorHandler(err, "passwords do not match")
+	}
+
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return "", utils.ErrorHandler(err, "internal server error")
+	}
+
+	currentTime := time.Now().Format(time.RFC3339)
+	_, err = db.Exec("UPDATE execs SET password = ?, password_changed_at = ? WHERE id  = ?", hashedPassword, currentTime, userId)
+	if err != nil {
+		return "", utils.ErrorHandler(err, "failed to update the password")
+	}
+
+	token, err := utils.SignToken(userId, username, userRole)
+	if err != nil {
+		return "", utils.ErrorHandler(err, "Password updated. Could not create token")
+	}
+
+	return token, nil
+}
+
+func ForgotPasswordDbHandler(emailId string) error {
+	db, err := ConnectDb()
+	if err != nil {
+		return utils.ErrorHandler(err, "Internal server error")
+	}
+	defer db.Close()
+
+	var exec models.Exec
+	err = db.QueryRow(`SELECT id FROM execs WHERE email = ?`, emailId).Scan(&exec.ID)
+	if err != nil {
+		return utils.ErrorHandler(err, "User not found")
+	}
+
+	duration, err := strconv.Atoi(os.Getenv("RESET_TOKEN_EXP_DURATION"))
+	if err != nil {
+		return utils.ErrorHandler(err, "Failed to send password reset email")
+	}
+
+	mins := time.Duration(duration)
+	expiry := time.Now().Add(mins * time.Minute).Format(time.RFC3339)
+
+	tokenBytes := make([]byte, 32)
+	_, err = rand.Read(tokenBytes)
+	if err != nil {
+		return utils.ErrorHandler(err, "Failed to send password reset email")
+	}
+
+	log.Println("tokenBytes:", tokenBytes)
+	token := hex.EncodeToString(tokenBytes)
+	log.Println("token:", token)
+
+	hashedToken := sha256.Sum256(tokenBytes)
+	log.Println("HashedToken:", hashedToken)
+
+	hashedTokenString := hex.EncodeToString(hashedToken[:])
+	_, err = db.Exec(`UPDATE execs SET password_reset_token = ?, password_token_expires = ? WHERE id = ?`, hashedTokenString, expiry, exec.ID)
+	if err != nil {
+		return utils.ErrorHandler(err, "Failed to send password reset email")
+	}
+
+	// Send the reset email
+	resetURL := fmt.Sprintf("https://localhost:3000/execs/resetpassword/reset/%s", token)
+	message := fmt.Sprintf("Forgot your password? Reset your password using the following link:\n%s\nIf you didn't request a password reset, please ignore this email, This link is only valid for %d minutes", resetURL, int(mins))
+
+	m := mail.NewMessage()
+	m.SetHeader("From", "academyadmin@academy.com") //Replace with own sender mail
+	m.SetHeader("To", emailId)
+	m.SetHeader("Subject", "Your password reset link")
+	m.SetBody("text/plain", message)
+
+	d := mail.NewDialer("localhost", 1025, "", "")
+	err = d.DialAndSend(m)
+	if err != nil {
+		return utils.ErrorHandler(err, "Failed to send password reset email")
+	}
+
+	return nil
 }
