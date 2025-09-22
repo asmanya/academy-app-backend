@@ -66,6 +66,13 @@ func GetOneExecHandler(w http.ResponseWriter, r *http.Request) {
 
 // POST /execs/
 func AddExecsHandler(w http.ResponseWriter, r *http.Request) {
+	// admin, manager
+	_, err := utils.AuthorizeUser(r.Context().Value(utils.ContextKey("role")).(string), "admin", "manager")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	var newExecs []models.Exec
 	var rawExecs []map[string]interface{}
 
@@ -138,10 +145,16 @@ func AddExecsHandler(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /execs/
 func PatchExecsHandler(w http.ResponseWriter, r *http.Request) {
+	// admin, manager
+	_, err := utils.AuthorizeUser(r.Context().Value(utils.ContextKey("role")).(string), "admin", "manager")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	var updates []map[string]interface{}
 
-	err := json.NewDecoder(r.Body).Decode(&updates)
+	err = json.NewDecoder(r.Body).Decode(&updates)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -159,6 +172,13 @@ func PatchExecsHandler(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /execs/{id}
 func PatchOneExecHandler(w http.ResponseWriter, r *http.Request) {
+	// admin, manager
+	_, err := utils.AuthorizeUser(r.Context().Value(utils.ContextKey("role")).(string), "admin", "manager")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -187,6 +207,13 @@ func PatchOneExecHandler(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /execs/{id}
 func DeleteOneExecHandler(w http.ResponseWriter, r *http.Request) {
+	// admin
+	_, err := utils.AuthorizeUser(r.Context().Value(utils.ContextKey("role")).(string), "admin")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {

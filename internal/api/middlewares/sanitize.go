@@ -15,9 +15,9 @@ import (
 )
 
 func XSSMiddlware(next http.Handler) http.Handler {
-	fmt.Println("********** Initializing XSSMiddlware")
+	// fmt.Println("********** Initializing XSSMiddlware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("******** XSSMiddleware Ran")
+		// fmt.Println("******** XSSMiddleware Ran")
 
 		// Sanitize the URL Path
 		sanitizedPath, err := clean(r.URL.Path)
@@ -25,8 +25,8 @@ func XSSMiddlware(next http.Handler) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		fmt.Println("Original Path:", r.URL.Path)
-		fmt.Println("Sanitized Path:", sanitizedPath)
+		// fmt.Println("Original Path:", r.URL.Path)
+		// fmt.Println("Sanitized Path:", sanitizedPath)
 
 		// Sanitize query params
 		params := r.URL.Query()
@@ -49,13 +49,13 @@ func XSSMiddlware(next http.Handler) http.Handler {
 				sanitizedValues = append(sanitizedValues, cleanValue.(string))
 			}
 			sanitizedQuery[sanitizedKey.(string)] = sanitizedValues
-			fmt.Printf("Original Query %s: %s\n", key, strings.Join(values, ", "))
-			fmt.Printf("Sanitized Query %s: %s\n", sanitizedKey, strings.Join(sanitizedValues, ", "))
+			// fmt.Printf("Original Query %s: %s\n", key, strings.Join(values, ", "))
+			// fmt.Printf("Sanitized Query %s: %s\n", sanitizedKey, strings.Join(sanitizedValues, ", "))
 		}
 
 		r.URL.Path = sanitizedPath.(string)
 		r.URL.RawQuery = url.Values(sanitizedQuery).Encode()
-		fmt.Println("Updated URL:", r.URL.String())
+		// fmt.Println("Updated URL:", r.URL.String())
 
 		// Sanitize request body
 		if r.Header.Get("Content-Type") == "application/json" {
@@ -67,7 +67,7 @@ func XSSMiddlware(next http.Handler) http.Handler {
 				}
 
 				bodyString := strings.TrimSpace(string(bodyBytes))
-				fmt.Println("Original Body:", bodyString)
+				// fmt.Println("Original Body:", bodyString)
 
 				// Reset the request body
 				r.Body = io.NopCloser(bytes.NewReader([]byte(bodyString)))
@@ -79,7 +79,7 @@ func XSSMiddlware(next http.Handler) http.Handler {
 						http.Error(w, utils.ErrorHandler(err, "Invalid json body").Error(), http.StatusBadRequest)
 						return
 					}
-					fmt.Println("Original JSON data:", inputData)
+					// fmt.Println("Original JSON data:", inputData)
 
 					// Sanitize the JSON body
 					sanitizedData, err := clean(inputData)
@@ -87,7 +87,7 @@ func XSSMiddlware(next http.Handler) http.Handler {
 						http.Error(w, err.Error(), http.StatusBadRequest)
 						return
 					}
-					fmt.Println("Sanitized JSON data:", sanitizedData)
+					// fmt.Println("Sanitized JSON data:", sanitizedData)
 
 					// Marshal the sanitized data back to the body
 					sanitizedBody, err := json.Marshal(sanitizedData)
@@ -97,7 +97,7 @@ func XSSMiddlware(next http.Handler) http.Handler {
 					}
 
 					r.Body = io.NopCloser(bytes.NewReader(sanitizedBody))
-					fmt.Println("Sanitized body:", string(sanitizedBody))
+					// fmt.Println("Sanitized body:", string(sanitizedBody))
 
 				} else {
 					log.Println("Request body is empty")
@@ -113,7 +113,7 @@ func XSSMiddlware(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
-		fmt.Println("Sending response from XSSMiddleware")
+		// fmt.Println("Sending response from XSSMiddleware")
 	})
 }
 

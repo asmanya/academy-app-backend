@@ -14,6 +14,7 @@ import (
 
 // GET /students/
 func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
+
 	var students []models.Student
 
 	// PAGINATION

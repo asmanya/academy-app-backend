@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	mw "academy-app-system/internal/api/middlewares"
 	"academy-app-system/internal/api/router"
@@ -37,25 +38,17 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	rl := mw.NewRateLimiter(5, time.Minute)
+	HPPOptions := mw.HPPOptions{
+		CheckQuery:                  true,
+		CheckBody:                   true,
+		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
+		WhiteList:                   []string{"sortBy", "sortOrder", "name", "age", "class", "country"},
+	}
+
 	router := router.MainRouter()
-
-	// rl := mw.NewRateLimiter(5, time.Minute)
-	// HPPOptions := mw.HPPOptions{
-	// 	CheckQuery:                  true,
-	// 	CheckBody:                   true,
-	// 	CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
-	// 	WhiteList:                   []string{"sortBy", "sortOrder", "name", "age", "class", "country"},
-	// }
-
-	// secureMux := mw.Cors(rl.RLMiddleware(mw.ResponseTimeMiddleware(mw.SecurityHeader(mw.Compression(mw.Hpp(HPPOptions)(mux))))))
-
-	// secureMux := utils.ApplyMiddlewares(mux, mw.Hpp(HPPOptions), mw.Compression, mw.SecurityHeader, mw.ResponseTimeMiddleware, rl.RLMiddleware, mw.Cors)
-
-	// jwtMiddleware := mw.MiddlewaresExcludePaths(mw.JWTMiddleware, "/execs/login", "/execs/forgotpassword", "/execs/resetpassword/reset")
-	// secureMux := jwtMiddleware(mw.SecurityHeader(router))
-	// secureMux := mw.SecurityHeader(router)
-
-	secureMux := mw.XSSMiddlware(router)
+	jwtMiddleware := mw.MiddlewaresExcludePaths(mw.JWTMiddleware, "/execs/login", "/execs/forgotpassword", "/execs/resetpassword/reset")
+	secureMux := utils.ApplyMiddlewares(router, mw.SecurityHeader, mw.Compression, mw.Hpp(HPPOptions), mw.XSSMiddlware, jwtMiddleware, mw.ResponseTimeMiddleware, rl.RLMiddleware, mw.Cors)
 
 	// create custom server
 	server := &http.Server{

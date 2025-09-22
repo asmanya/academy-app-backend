@@ -18,11 +18,11 @@ func Hpp(options HPPOptions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// fmt.Println("HPP middleware being returned =========XXXXXXXXXX==========")
-			if options.CheckBody && r.Method == http.MethodPost && isCorrectContentType(r, options.CheckBodyOnlyForContentType){
+			if options.CheckBody && r.Method == http.MethodPost && isCorrectContentType(r, options.CheckBodyOnlyForContentType) {
 				// filter the body params
 				filterBodyParams(r, options.WhiteList)
 			}
-			
+
 			if options.CheckQuery && r.URL.Query() != nil {
 				// filter the query params
 				filterQueryParams(r, options.WhiteList)

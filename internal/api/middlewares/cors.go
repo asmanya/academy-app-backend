@@ -1,13 +1,11 @@
 package middlewares
 
 import (
-	"fmt"
 	"net/http"
 )
 
 // api is hosted at www.myapi.com
 // frontend server is at www.myfrontend.com
-
 
 // Allowed Origins
 var allowedOrigins = []string{
@@ -21,7 +19,7 @@ func Cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// fmt.Println("Cors middleware being returned =========XXXXXXXXXX==========")
 		origin := r.Header.Get("Origin")
-		fmt.Println(origin)
+		// fmt.Println(origin)
 
 		if isOriginAllowed(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
