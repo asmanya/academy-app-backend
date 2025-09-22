@@ -16,20 +16,27 @@ import (
 // GET /execs/
 func GetExecsHandler(w http.ResponseWriter, r *http.Request) {
 	var execs []models.Exec
-	execs, err := sqlconnect.GetExecsDBHandler(execs, r)
+
+	page, limit := utils.GetPaginationParams(r)
+
+	execs, totalExecs, err := sqlconnect.GetExecsDBHandler(execs, r, limit, page)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	response := struct {
-		Status string        `json:"status"`
-		Count  int           `json:"count"`
-		Data   []models.Exec `json:"data"`
+		Status   string        `json:"status"`
+		Count    int           `json:"count"`
+		Page     int           `json:"page"`
+		PageSize int           `json:"page_size"`
+		Data     []models.Exec `json:"data"`
 	}{
-		Status: "success",
-		Count:  len(execs),
-		Data:   execs,
+		Status:   "success",
+		Count:    totalExecs,
+		Page:     page,
+		PageSize: limit,
+		Data:     execs,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

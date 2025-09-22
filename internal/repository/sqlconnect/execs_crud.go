@@ -18,10 +18,10 @@ import (
 	"github.com/go-mail/mail/v2"
 )
 
-func GetExecsDBHandler(execs []models.Exec, r *http.Request) ([]models.Exec, error) {
+func GetExecsDBHandler(execs []models.Exec, r *http.Request, limit, page int) ([]models.Exec, int, error) {
 	db, err := ConnectDb()
 	if err != nil {
-		return nil, utils.ErrorHandler(err, "error retrieving data")
+		return nil, 0, utils.ErrorHandler(err, "error retrieving data")
 	}
 	defer db.Close()
 
@@ -30,11 +30,16 @@ func GetExecsDBHandler(execs []models.Exec, r *http.Request) ([]models.Exec, err
 
 	query, args = utils.AddFilters(r, query, args)
 
+	// add pagination
+	offset := (page - 1) * limit
+	query += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
 	query = utils.AddSorting(r, query)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		return nil, utils.ErrorHandler(err, "error retrieving data")
+		return nil, 0, utils.ErrorHandler(err, "error retrieving data")
 	}
 	defer rows.Close()
 
@@ -42,12 +47,21 @@ func GetExecsDBHandler(execs []models.Exec, r *http.Request) ([]models.Exec, err
 		var exec models.Exec
 		err := rows.Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.UserCreatedAt, &exec.InactiveStatus, &exec.Role)
 		if err != nil {
-			return nil, utils.ErrorHandler(err, "error retrieving data")
+			return nil, 0, utils.ErrorHandler(err, "error retrieving data")
 		}
 
 		execs = append(execs, exec)
 	}
-	return execs, nil
+
+	// Get the total count
+	var totalExecs int
+	err = db.QueryRow(`SELECT COUNT(*) FROM execs`).Scan(&totalExecs)
+	if err != nil {
+		utils.ErrorHandler(err, "")
+		totalExecs = 0
+	}
+
+	return execs, totalExecs, nil
 }
 
 func GetExecByID(id int) (models.Exec, error) {

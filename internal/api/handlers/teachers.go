@@ -3,6 +3,7 @@ package handlers
 import (
 	"academy-app-system/internal/models"
 	"academy-app-system/internal/repository/sqlconnect"
+	"academy-app-system/pkg/utils"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,22 +13,28 @@ import (
 
 // GET /teachers/
 func GetTeachersHandler(w http.ResponseWriter, r *http.Request) {
-
 	var teachers []models.Teacher
-	teachers, err := sqlconnect.GetTeachersDBHandler(teachers, r)
+
+	page, limit := utils.GetPaginationParams(r)
+
+	teachers, totalTeachers, err := sqlconnect.GetTeachersDBHandler(teachers, r, limit, page)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	response := struct {
-		Status string           `json:"status"`
-		Count  int              `json:"count"`
-		Data   []models.Teacher `json:"data"`
+		Status   string           `json:"status"`
+		Count    int              `json:"count"`
+		Page     int              `json:"page"`
+		PageSize int              `json:"page_size"`
+		Data     []models.Teacher `json:"data"`
 	}{
-		Status: "success",
-		Count:  len(teachers),
-		Data:   teachers,
+		Status:   "success",
+		Count:    totalTeachers,
+		Page:     page,
+		PageSize: limit,
+		Data:     teachers,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

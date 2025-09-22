@@ -3,6 +3,7 @@ package handlers
 import (
 	"academy-app-system/internal/models"
 	"academy-app-system/internal/repository/sqlconnect"
+	"academy-app-system/pkg/utils"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,25 +15,34 @@ import (
 // GET /students/
 func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 	var students []models.Student
-	students, err := sqlconnect.GetStudentsDBHandler(students, r)
+
+	// PAGINATION
+	// url?limit=50&page=1_2_3
+	// database will leave/will not show calculated enteries from the beginning, ((page-1)*limit) => ((1-1)*50 = 0) , ((2-1)*50 = 50)
+	page, limit := utils.GetPaginationParams(r)
+
+	students, totalstudents, err := sqlconnect.GetStudentsDBHandler(students, r, limit, page)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	response := struct {
-		Status string           `json:"status"`
-		Count  int              `json:"count"`
-		Data   []models.Student `json:"data"`
+		Status   string           `json:"status"`
+		Count    int              `json:"count"`
+		Page     int              `json:"page"`
+		PageSize int              `json:"page_size"`
+		Data     []models.Student `json:"data"`
 	}{
-		Status: "success",
-		Count:  len(students),
-		Data:   students,
+		Status:   "success",
+		Count:    totalstudents,
+		Page:     page,
+		PageSize: limit,
+		Data:     students,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-
 }
 
 // GET /students/{id}
@@ -59,14 +69,14 @@ func GetOneStudentHandler(w http.ResponseWriter, r *http.Request) {
 func AddStudentHandler(w http.ResponseWriter, r *http.Request) {
 	var newStudents []models.Student
 	var rawStudents []map[string]interface{}
-	
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		return
 	}
 	defer r.Body.Close()
-	
+
 	err = json.Unmarshal(body, &rawStudents)
 	if err != nil {
 		fmt.Println(err)
